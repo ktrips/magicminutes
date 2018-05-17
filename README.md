@@ -1,0 +1,2 @@
+# magicminutes
+Magic Minutes Device
