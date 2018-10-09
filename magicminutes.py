@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import time
 from datetime import datetime
@@ -275,7 +277,7 @@ if __name__ == '__main__':
     parser.add_argument('--speech', dest='speech', type=str, default='', help='speech lang')
     args  = parser.parse_args()
     mail  = args.mail if args.mail else ''
-    speech= args.speech if args.speech else 'JPY'
+    speech= args.speech if args.speech else 'ja-JP'
     trans = args.trans if args.speech else ''
 
     main()
