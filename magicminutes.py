@@ -4,7 +4,6 @@ import os
 import time
 from datetime import datetime
 import argparse
-
 import re
 
 import aiy.audio
@@ -19,17 +18,36 @@ from pixel_ring import pixel_ring
 import sys
 #from snowboydetect import SnowboyDetect
 
+import urllib.request, urllib.parse, urllib.error
+DEVICE = 0
+CARD   = 0
+VOLUME = 50
+aquest_dir = '/home/pi/AIY-projects-python/src/aquestalkpi/AquesTalkPi'
 RATE = 16000
 CHANNELS = 8
 KWS_FRAMES = 10     # ms
 DOA_FRAMES = 800    # ms
+
+default_speech= 'ja-JP'
+default_trans = 'en-US'
+aiy_lang = ['en-US', 'en-GB', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']
 
 #detector = SnowboyDetect('/home/pi/AIY-projects-python/src/examples/voice/snowboy/resources/common.res','/home/pi/AIY-projects-python/src/examples/voice/snowboy/resources/a$
 #detector.SetAudioGain(1)
 #detector.SetSensitivity('0.5')
 history = collections.deque(maxlen=int(DOA_FRAMES / KWS_FRAMES))
 
-def main():
+from google.cloud import translate
+def translate_text(text, trans_lang):
+    if trans_lang == '':
+        return text
+    else:
+      target_lang = trans_lang.split("-")[0]
+      translate_client = translate.Client()
+      result = translate_client.translate(text, target_language=target_lang)
+      return result['translatedText']
+
+def main(detect="", trans="", mail=""):
     recognizer = aiy.cloudspeech.get_recognizer()
     recognizer.expect_phrase('turn off the light')
     recognizer.expect_phrase('turn on the light')
@@ -54,6 +72,9 @@ def main():
      else:
       print("on")
       #button.wait_for_press()
+
+      aiy.audio.get_recorder().start()
+      aiy.i18n.set_language_code(speech_lang)
 
       i = 0
       convs = []
@@ -121,11 +142,25 @@ def main():
               direct_jp= u"前席の方："
             #direct = str(direction)
             print('>> ' + direct + ' said "' + text + '"')
-            if speech == "ja-JP":
-                aquestalk(text_jp)
+            
+            if detect == "ja-JP":
+                os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, text_jp, CARD, DEVICE))
             else:
-                aiy.audio.say(text, speech)
-
+                aiy.audio.say(text, detect)
+            
+            if trans:
+                trans_text = translate_text(text, trans)
+                trans_text = trans_text.replace("&#39;","")
+                print('Trans: ' + trans_text)
+                if trans_lang in aiy_lang:
+                  aiy.audio.say(trans_text, trans)
+                elif trans_lang == "ja-JP":
+                  os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, trans_text, CARD, DEVICE))
+                else:
+                  aiy.audio.say('Nothing to trans!', 'en-US')
+            else: #trans_lang = null then default en-US
+                aiy.audio.say(text, 'en-US')
+ 
             keyw = "conv"
             text.lower()
 
@@ -269,44 +304,6 @@ def main():
             time.sleep(0.2)
             pixel_ring.off()
             #print(convs)
-
-
-
-
-default_trans = 'ja-JP'
-aiy_lang = ['en-US', 'en-GB', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']
-import urllib.request, urllib.parse, urllib.error
-DEVICE = 0
-CARD   = 0
-VOLUME = 50
-aquest_dir = '/home/pi/AIY-projects-python/src/aquestalkpi/AquesTalkPi'
-from google.cloud import translate
-def translate_text(text, trans_lang):
-    if trans_lang == '':
-        return text
-    else:
-      target_lang = trans_lang.split("-")[0]
-      translate_client = translate.Client()
-      result = translate_client.translate(text, target_language=target_lang)
-      return result['translatedText']
-…
-def main(detect="", photo_file="", trans_lang=""):
-…
-        print('Result: ' + result)
-        if trans_lang:
-            trans_text = translate_text(result, trans_lang)
-            trans_text = trans_text.replace("&#39;","")
-            print('Trans: ' + trans_text)
-            if trans_lang in aiy_lang:
-              aiy.audio.say(trans_text, trans_lang)
-            elif trans_lang == "ja-JP":
-              os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, trans_text, CARD, DEVICE))
-            else:
-              aiy.audio.say('Nothing to trans!', 'en-US')
-        else: #trans_lang = null then default en-US
-            aiy.audio.say(result, 'en-US')
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
