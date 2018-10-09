@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import os
@@ -20,7 +21,7 @@ import sys
 
 import urllib.request, urllib.parse, urllib.error
 DEVICE = 0
-CARD   = 0
+CARD   = 1
 VOLUME = 50
 aquest_dir = '/home/pi/AIY-projects-python/src/aquestalkpi/AquesTalkPi'
 RATE = 16000
@@ -29,10 +30,10 @@ KWS_FRAMES = 10     # ms
 DOA_FRAMES = 800    # ms
 
 default_speech= 'ja-JP'
-default_trans = 'en-US'
+default_trans = '' #'en-US'
 aiy_lang = ['en-US', 'en-GB', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']
 
-#detector = SnowboyDetect('/home/pi/AIY-projects-python/src/examples/voice/snowboy/resources/common.res','/home/pi/AIY-projects-python/src/examples/voice/snowboy/resources/a$
+#detector = SnowboyDetect('/home/pi/AIY-projects-python/src/examples/voice/snowboy/resources/common.res','/home/pi/AIY-pro$
 #detector.SetAudioGain(1)
 #detector.SetSensitivity('0.5')
 history = collections.deque(maxlen=int(DOA_FRAMES / KWS_FRAMES))
@@ -47,7 +48,7 @@ def translate_text(text, trans_lang):
       result = translate_client.translate(text, target_language=target_lang)
       return result['translatedText']
 
-def main(detect="", trans="", mail=""):
+def main(): #detect="ja-JP", trans="", mail=""):
     recognizer = aiy.cloudspeech.get_recognizer()
     recognizer.expect_phrase('turn off the light')
     recognizer.expect_phrase('turn on the light')
@@ -57,9 +58,8 @@ def main(detect="", trans="", mail=""):
     button = aiy.voicehat.get_button()
     led = aiy.voicehat.get_led()
     aiy.audio.get_recorder().start()
-    aiy.audio.get_recorder().start()
     aiy.i18n.set_language_code(detect)
-    
+
     import RPi.GPIO as GPIO
     BUTTON = 16
     GPIO.setmode(GPIO.BCM)
@@ -76,6 +76,7 @@ def main(detect="", trans="", mail=""):
 
       i = 0
       convs = []
+      convs_trans = []
       while True:
       #try:
         """print('Press the button and speak')
@@ -90,6 +91,7 @@ def main(detect="", trans="", mail=""):
                 #ans = detector.RunDetection(chunk[0::CHANNELS].tostring())
                 text = recognizer.recognize() #chunk[0::CHANNELS].tostring())
                 print(text)
+
                 #if ans > 0:
                 #text = "Yes"
                 if not text:
@@ -109,18 +111,19 @@ def main(detect="", trans="", mail=""):
         #print('Press the button and start conversation')
         #button.wait_for_press()
 
-        bye_words    = ['goodbye', 'good bye', 'see you', 'bye bye', '終わり',  '終わりです',  'さようなら',  'バイバイ']
+        bye_words    = ['Goodbye', 'Good bye', 'See you', 'Bye bye', '終わり',  '終わりです',  'さようなら',  'バイバイ']
         progress_words=['completed', 'confirmed', 'delayed', 'finished', 'discussed', 'fixed']
         approve_words= ['agreed', 'approved']
         next_words   = ['next step', 'next Steps', 'next action', 'next actions']
         issue_words  = ['issue', 'issues', 'problem', 'error', 'dificit']
         magic_words  = ['magic minutes', 'magical minutes']
 
-        print('Listening...')
+        print('Listening in '+detect+'...')
         text = recognizer.recognize()
         if not text:
             print('Sorry, I did not hear you. Please say again')
         else:
+
             convDateTime = datetime.now()
             convDateStr = convDateTime.strftime('%Y-%m-%d %H:%M:%S')
             i += 1
@@ -132,33 +135,36 @@ def main(detect="", trans="", mail=""):
             direction = directions[i] #mic.get_direction(frames)
 
             pixel_ring.set_direction(direction)
-            if direction > 90 and direction < 270:
-              direct   = "Back-side person"
-              direct_jp= u"後席の方："
+            if direction > 45 and direction <= 135:
+              direct = "Right"
+            elif direction > 135 and direction <= 225:
+              direct = "Back"
+            elif direction > 225 and direction <= 315:
+              direct = "Left"
             else:
-              direct   = "Front person"
-              direct_jp= u"前席の方："
+              direct = "Front"
             #direct = str(direction)
             print('>> ' + direct + ' said "' + text + '"')
-            
+
             if detect == "ja-JP":
-                os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, text_jp, CARD, DEVICE))
+                os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, text, CARD, DEVICE))
             else:
                 aiy.audio.say(text, detect)
-            
+
             if trans:
                 trans_text = translate_text(text, trans)
                 trans_text = trans_text.replace("&#39;","")
                 print('Trans: ' + trans_text)
-                if trans_lang in aiy_lang:
+
+                if trans in aiy_lang:
                   aiy.audio.say(trans_text, trans)
-                elif trans_lang == "ja-JP":
+                elif trans == "ja-JP":
                   os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, trans_text, CARD, DEVICE))
                 else:
                   aiy.audio.say('Nothing to trans!', 'en-US')
-            else: #trans_lang = null then default en-US
-                aiy.audio.say(text, 'en-US')
- 
+            #else: #trans_lang = null then default en-US
+                #aiy.audio.say(text, 'en-US')
+
             keyw = "conv"
             text.lower()
 
@@ -168,29 +174,30 @@ def main(detect="", trans="", mail=""):
                 #keyw = "MC"
 
             for m in magic_words:
-              if text.find(m) > -1:
+              if trans_text.find(m) > -1:
                 keyw = "MC"
                 pixel_ring.spin()
                 aiy.audio.say('Ok, make magic minutes!')
                 break
             for a in progress_words:
-              if text.find(a) > -1:
+              if trans_text.find(a) > -1:
                 keyw = "progress"
                 break
             for a in approve_words:
-              if text.find(a) > -1:
+              if trans_text.find(a) > -1:
                 keyw = "approve"
                 break
+
             for a in issue_words:
-              if text.find(a) > -1:
+              if trans_text.find(a) > -1:
                 keyw = "issue"
                 break
             for n in next_words:
-              if text.find(n) > -1:
+              if trans_text.find(n) > -1:
                 keyw = "next"
                 break
             for b in bye_words:
-              if text.find(b) > -1:
+              if trans_text.find(b) > -1:
                 keyw = "bye"
                 break
 
@@ -199,13 +206,20 @@ def main(detect="", trans="", mail=""):
                 "convt": text,
                 "keyw": keyw}
             convs.append(conv)
+            if trans:
+              conv_trans = {"number": i,
+                "person": direct,
+                "convt": trans_text,
+                "keyw": keyw}
+              convs_trans.append(conv_trans)
+
 
             if text in bye_words:
-                #print(convs)
               if mail:
                   dir_name = convDateTime.strftime('%Y%m%d')
                   dir_path = '/home/pi/AIY-projects-python/msg/' + dir_name + '/'
                   file_name= convDateTime.strftime('%H%M%S') + '.txt'
+
                   fname    = dir_path + file_name
 
                   """os.makedirs(dir_path, exist_ok=True)
@@ -218,7 +232,8 @@ def main(detect="", trans="", mail=""):
                   except OSError:
                     print("Directory already exists")"""
 
-                  conv_org    = ""
+                  conv_org = ""
+                  conv_trans_org = ""
                   progressw   = ""
                   conv_progress=""
                   approvew    = ""
@@ -230,11 +245,18 @@ def main(detect="", trans="", mail=""):
                   nextn       = 0
                   conv_next   = ""
 
-                  is_are = ["is","was","are","were", "it's", "its"]
+                  direct_jp = {"Front":"前席の方の発言",
+                               "Right":"右側の方の発言",
+                               "Left":"左側の方の発言",
+                               "Back":"後席の方の発言"}
                   for con in convs:
+                    conv_org += str(con["number"]) + '(' + direct_jp[con["person"]] + '): ' + con["convt"] + '\n'
+
+                  is_are = ["is","was","are","were", "it's", "its"]
+                  for con in convs_trans:
                     if con["keyw"] not in ["MC", "MM", "bye"]:
-                      conv_org += ' ' + str(con["number"]) + '(' + con["person"] + '): ' + con["convt"] + '\n'
-                  if con["keyw"] == "progress":
+                      conv_trans_org += ' ' + str(con["number"]) + '(' + con["person"] + '): ' + con["convt"] + '\n'
+                    if con["keyw"] == "progress":
                       progressw = con["convt"]
                       conv_progress+= ' - ' + progressw + " by " + con["person"] + '\n'
                     if con["keyw"] == "approve":
@@ -253,10 +275,10 @@ def main(detect="", trans="", mail=""):
                         nextw = nextw.replace(a, "")"""
                       conv_next += ' - #' + str(nextn) + ': ' + nextw + '\n'
 
-                  minutes   = '= Meeting Minutes =\n\n'
-                  minutes_jp= u'= 議事録 =\n\n'
-                  minutes   += 'RE: Development Status\n'
-                  minutes_jp+= 'RE: 本日の進捗会議\n'
+                  #minutes   = '= Meeting Minutes =\n\n'
+                  #minutes_jp= u'= 議事録 =\n\n'
+                  minutes    = 'RE: Development Status\n'
+                  minutes_jp = '議題: 定例進捗会議\n'
                   minutes   += 'Date: ' +convDateStr + '\n'
                   minutes_jp+= '日付: ' +convDateStr + '\n'
                   minutes   += 'MMinutes by: ' + mail + '\n'
@@ -268,37 +290,41 @@ def main(detect="", trans="", mail=""):
                     minutes+= '\n Approved item(s):\n'
                     minutes+= conv_approve
                   if conv_issue:
-                   minutes+= '\n Issue(s):\n'
+                    minutes+= '\n Issue(s):\n'
                     minutes+= conv_issue
                   if conv_next:
                     minutes+= '\n Next action(s):\n'
                     minutes+= conv_next
                   minutes   += '\n Meeting details: \n'
                   minutes_jp+= '\n 会議内容: \n'
-                  minutes   += conv_org + '\n'
+                  minutes   += conv_trans_org + '\n'
                   minutes_jp+= conv_org + '\n'
                   minutes   += 'Meeting note is attached:'
                   minutes_jp+= '添付資料:'
-                  subject   = '"Meeting minutes (' + convDateStr + ')"'
-                  subject_jp= '"議事録 (' + convDateStr + ')"'
-                  print(subject + '\n' + minutes)
-                  print(subject_jp + '\n' + minutes_jp)
+                  subject   = '"Todays Meeting minutes (' + convDateStr + ')"'
+                  subject_jp= '"本日の議事録 (' + convDateStr + ')"'
+                  header_jp = "本日行われましたお打合せの議事録を送付いたします。\n宜しくご査収お願い致します。"
+                  header_jp+= "(English follows)\n" if trans else ""
+                  header    = "Please find the attached meeting minutes held today.\nPlease let me know if you have any qu$
+                  magic_minutes = header_jp + '\n' + minutes_jp
+                  magic_minutes+= '\n' + header + '\n' + minutes if trans else ""
+                  print(magic_minutes)
 
                   pixel_ring.spin()
 
                   os.makedirs(dir_path, exist_ok=True)
                   with open(os.path.join(dir_path, file_name), 'w') as f:
-                    f.write(minutes)
-                  cmd = 'mutt -s ' + subject + ' ' + mail + ' -a "/home/pi/AIY-projects-python/msg/mminutes2.jpg" < ' + fname
+                    f.write(magic_minutes)
+                  cmd = 'mutt -s ' + subject_jp + ' ' + mail + ' -a "/home/pi/AIY-projects-python/msg/mminutes2.jpg" < ' +$
                   os.system(cmd)
-                  
-                  aiy.audio.say('Minutes is sent to ' + mail)
+                  if detect != "ja-JP":
+                      aiy.audio.say('Minutes is sent to ' + mail)
 
-                aiy.audio.say('See you again!')
-                
-                pixel_ring.off()
+              if detect != "ja-JP":
+                  aiy.audio.say('See you again!')
+              pixel_ring.off()
+              break
 
-                break
             time.sleep(0.2)
             pixel_ring.off()
             #print(convs)
@@ -309,4 +335,7 @@ if __name__ == '__main__':
     parser.add_argument('--detect', nargs='?', dest='detect', type=str, default='ja-JP', help='detect lang')
     parser.add_argument('--trans', nargs='?', dest='trans', type=str, default='', help='trans lang')
     args  = parser.parse_args()
-    main(args.mail, args.detect, args.trans)
+    mail  = args.mail if args.mail else ""
+    detect= args.detect if args.detect else default_speech
+    trans = args.trans  if args.trans else  default_trans
+    main() #args.mail, detect, args.trans)
