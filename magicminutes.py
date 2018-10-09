@@ -57,10 +57,11 @@ def main(detect="", trans="", mail=""):
     button = aiy.voicehat.get_button()
     led = aiy.voicehat.get_led()
     aiy.audio.get_recorder().start()
-
+    aiy.audio.get_recorder().start()
+    aiy.i18n.set_language_code(detect)
+    
     import RPi.GPIO as GPIO
     BUTTON = 16
-
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(BUTTON, GPIO.IN)
 
@@ -72,9 +73,6 @@ def main(detect="", trans="", mail=""):
      else:
       print("on")
       #button.wait_for_press()
-
-      aiy.audio.get_recorder().start()
-      aiy.i18n.set_language_code(speech_lang)
 
       i = 0
       convs = []
@@ -98,7 +96,7 @@ def main(detect="", trans="", mail=""):
                     print('Sorry, I did not hear you.')
                 else:
                     frames = np.concatenate(history)
-                   direction = mic.get_direction(frames)
+                    direction = mic.get_direction(frames)
                     pixel_ring.set_direction(direction)
                     print('\n{}'.format(int(direction)))
 
