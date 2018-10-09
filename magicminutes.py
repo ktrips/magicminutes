@@ -271,13 +271,47 @@ def main():
             #print(convs)
 
 
+
+
+default_trans = 'ja-JP'
+aiy_lang = ['en-US', 'en-GB', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']
+import urllib.request, urllib.parse, urllib.error
+DEVICE = 0
+CARD   = 0
+VOLUME = 50
+aquest_dir = '/home/pi/AIY-projects-python/src/aquestalkpi/AquesTalkPi'
+from google.cloud import translate
+def translate_text(text, trans_lang):
+    if trans_lang == '':
+        return text
+    else:
+      target_lang = trans_lang.split("-")[0]
+      translate_client = translate.Client()
+      result = translate_client.translate(text, target_language=target_lang)
+      return result['translatedText']
+…
+def main(detect="", photo_file="", trans_lang=""):
+…
+        print('Result: ' + result)
+        if trans_lang:
+            trans_text = translate_text(result, trans_lang)
+            trans_text = trans_text.replace("&#39;","")
+            print('Trans: ' + trans_text)
+            if trans_lang in aiy_lang:
+              aiy.audio.say(trans_text, trans_lang)
+            elif trans_lang == "ja-JP":
+              os.system(aquest_dir + ' -g {} {} | aplay -D plughw:{},{}'.format(VOLUME, trans_text, CARD, DEVICE))
+            else:
+              aiy.audio.say('Nothing to trans!', 'en-US')
+        else: #trans_lang = null then default en-US
+            aiy.audio.say(result, 'en-US')
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mail', dest='mail', type=str, default='', help='send to email')
-    parser.add_argument('--speech', dest='speech', type=str, default='', help='speech lang')
+    parser.add_argument('--mail', nargs='?', dest='mail', type=str, default='', help='send to email')
+    parser.add_argument('--detect', nargs='?', dest='detect', type=str, default='ja-JP', help='detect lang')
+    parser.add_argument('--trans', nargs='?', dest='trans', type=str, default='', help='trans lang')
     args  = parser.parse_args()
-    mail  = args.mail if args.mail else ''
-    speech= args.speech if args.speech else 'ja-JP'
-    trans = args.trans if args.speech else ''
-
-    main()
+    main(args.mail, args.detect, args.trans)
